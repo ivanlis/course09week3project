@@ -1,0 +1,66 @@
+---
+title: "Presentation with a Plot"
+author: "Ivan Lysiuchenko"
+date: '29 July 2018'
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Loading the data
+
+Let's load a dataset on the population of Bilbao in 2018.
+
+```{r echo=TRUE, message=FALSE}
+if (!file.exists("neighborhoods.csv"))
+{
+    download.file("http://www.bilbao.eus/bilbaoopendata/demografia/numero_habitantes_barrio_sexo_2018.csv", 
+                  destfile = "neighborhoods.csv")
+}
+
+population <- read.csv("neighborhoods.csv", 
+                       sep = ";", stringsAsFactors = FALSE,
+                       encoding = "bytes")
+```
+```{r echo=TRUE}
+dim(population)
+```
+
+## Preprocessing
+
+```{r echo=TRUE, message=FALSE}
+population <- population[
+    !is.na(population$COD..BARRIO) & 
+        !grepl("^DISEMINADO", population$BARRIO),]
+
+library(dplyr)
+population <- transmute(population, 
+                  neighborhoodCode = factor(as.integer(COD..BARRIO)),
+                  neighborhood = as.character(BARRIO), 
+                  sex = (function(x){ 
+                      x = sub("HOMBRES", "male", x, 
+                              ignore.case = TRUE); 
+                      x = sub("MUJERES", "female", x, 
+                              ignore.case = TRUE); x 
+                  })(SEXO), 
+                  population = TOTAL)
+library(tidyr)
+population <- spread(population, sex, population)
+```
+
+## Population of Bilbao by neighborhood
+
+```{r message=FALSE}
+library(plotly)
+
+pl <- plot_ly(data = population, type = "bar", x = ~neighborhood, 
+              y = ~male, name = "Male") %>%
+    add_trace(y = ~female, name = "Female") %>%
+    layout(yaxis = list(title = "population in 2018"),
+           xaxis = list(title = "", tickangle = 45),
+           barmode = "stack")
+pl
+```
+
